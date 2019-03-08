@@ -139,6 +139,52 @@ function install() {
 
 ## Troubleshooting
 
+### Enable Detailed Output of Mock Failures
+
+The best way to know what went wrong with your mocks is to set `BATS_MOCK_DETAIL` appropriately for your environment, typically:
+
+```bash
+export BATS_MOCK_DETAIL=/dev/tty
+```
+
+With this configuration set, any mock failure will result in more detailed error output. For
+example, a test like this:
+
+```bash
+format_date() {
+  date -r 222
+}
+
+@test "date format util formats date with expected arguments" {
+  export BATS_MOCK_DETAIL=/dev/tty
+  stub date \
+      "-r 222 : echo 'I am stubbed!'" \
+      "-r 223 : echo 'Wed Dec 31 18:03:42 CST 1969'"
+  # Oops!   ^ I mis-typed that one
+  result="$(format_date)"
+  [ "$result" == 'I am stubbed!' ]
+  result="$(format_date)"
+  [ "$result" == 'Wed Dec 31 18:03:42 CST 1969' ]
+  unstub date
+}
+```
+
+...would result in output like this:
+
+```shell
+   date format util formats date with expected arguments           1/1
+    bats-mock(date): expected date '-r' '223'
+    bats-mock(date): got date '-r' '222'
+    bats-mock(date): match failed at idx 1, expected '223', got '222'
+ ✗ date format util formats date with expected arguments
+   (in test file test/example.bats, line 14)
+     `[ "$result" == 'Wed Dec 31 18:03:42 CST 1969' ]' failed
+
+1 tests, 1 failure
+```
+
+### Debugging Specific Mocks
+
 It can be difficult to figure out why your mock has failed. You can enable debugging by setting an environment variable (in this case for `date`):
 
 ```bash
@@ -166,6 +212,8 @@ look like:
 
 1 tests, 0 failures
 ```
+
+### Isolating Mocks for Each Test
 
 With default behavior, stubs for all tests go into the same shared `${BATS_TMPDIR}` (`/tmp` on unix systems). This has the effect that if and when some mocking goes wrong, it can cause failure of later tests that deserve to pass. A good work-around for this is to use the `bats-file` support library from [ztombol/bats-file](https://github.com/ztombol/bats-file) to configure `bats-mock` to run in a sub-directory unique to each test. For example:
 

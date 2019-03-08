@@ -28,6 +28,37 @@ debug() {
   fi
 }
 
+# This print helper keeps track of whether the overall expected and actual invocation (initialized
+# later below) has been printed, and prints it before the first printing of error detail.
+printed_expectation=0
+printed_invocation=0
+expected_invocation=''
+actual_invocation=''
+detail_overview() {
+  if [ -z "${BATS_MOCK_DETAIL}" ] ; then return; fi
+  if [ $printed_expectation -ne 1 ]; then
+    echo '' >&${BATS_MOCK_DETAIL} # Work around problem with interrupting normal BATS output
+    echo "${_LDSPC}bats-mock($program): $expected_invocation" >&${BATS_MOCK_DETAIL}
+    printed_expectation=1
+  fi
+  if [ $printed_invocation -ne 1 ]; then
+    echo "${_LDSPC}bats-mock($program): $actual_invocation" >&${BATS_MOCK_DETAIL}
+    printed_invocation=1
+  fi
+}
+
+# Use for detailed output on failure when user asks for it across all mocks by setting i.e.: 
+#   export BATS_MOCK_DETAIL=/dev/tty
+# NOTE: When you want to output both debug-level and error detail, use this output helper.
+detail() {
+  if [ -n "${BATS_MOCK_DETAIL}" ] ; then
+    detail_overview
+    echo "${_LDSPC}bats-mock($program): $@" >&${BATS_MOCK_DETAIL}
+  elif [ -n "${!_STUB_DEBUG}" ] ; then
+    echo "${_LDSPC}bats-mock($program): $@" >&${!_STUB_DEBUG}
+  fi
+}
+
 [ -e "${!_STUB_PLAN}" ] || exit 1
 [ -n "${!_STUB_RUN}" ] || eval "${_STUB_RUN}"="${BATS_MOCK_TMPDIR}/${program}-stub-run"
 
@@ -36,9 +67,11 @@ eval "${_STUB_INDEX}"=1
 eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
+actual_invocation="got ${program}$(printf " '%q'" "$@")"
 if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
   echo '' >&${!_STUB_DEBUG} # Work around problem with interrupting normal BATS output
-  debug "got $program $@"
+  debug "$actual_invocation"
+  printed_invocation=1  # No need to re-print soon after for debug mode
 fi
 
 # Loop over each line in the plan.
@@ -72,6 +105,8 @@ while IFS= read -r line; do
     # debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
     # debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
 
+    expected_invocation="expected ${program}$(printf " '%q'" "${parsed_patterns[@]}")"
+
     # Match the expected argument patterns to actual
     # arguments.
     for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
@@ -79,7 +114,7 @@ while IFS= read -r line; do
       argument="${arguments[$i]}"
 
       if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
-        debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
+        detail "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
         result=1
       fi
     done
@@ -87,7 +122,7 @@ while IFS= read -r line; do
     # Error out with debugging for any extra parameters
     for (( i=${#parsed_patterns[@]}; i<${#arguments[@]}; i++ )); do
       argument="${arguments[$i]}"
-      debug "$(printf "unexpected argument at idx %d, got '%q'" $i "${arguments[$i]}")"
+      detail "$(printf "unexpected argument at idx %d, got '%q'" $i "${arguments[$i]}")"
       result=1
     done
 
