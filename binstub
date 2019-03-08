@@ -17,9 +17,14 @@ _STUB_RESULT="${PROGRAM}_STUB_RESULT"
 _STUB_END="${PROGRAM}_STUB_END"
 _STUB_DEBUG="${PROGRAM}_STUB_DEBUG"
 
+# Indent debug/detail output further than ordinary BATS output
+_LDSPC='    '
+
+# Use for debug-level output when user asks for it regarding a specific stub by setting i.e.: 
+#   export MYPROGRAM_STUB_DEBUG=/dev/tty
 debug() {
   if [ -n "${!_STUB_DEBUG}" ] ; then
-    echo "bats-mock($program): $@" >&${!_STUB_DEBUG}
+    echo "${_LDSPC}bats-mock($program): $@" >&${!_STUB_DEBUG}
   fi
 }
 
@@ -32,7 +37,8 @@ eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
 if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
-  debug "got $program $@" >&${!_STUB_DEBUG}
+  echo '' >&${!_STUB_DEBUG} # Work around problem with interrupting normal BATS output
+  debug "got $program $@"
 fi
 
 # Loop over each line in the plan.
@@ -40,9 +46,7 @@ index=0
 while IFS= read -r line; do
   index=$(($index + 1))
 
-  # if [ -n "${!_STUB_DEBUG}" ]; then
-  #   echo "bats-mock: [idx $index, want ${!_STUB_INDEX}] $line" >&${!_STUB_DEBUG}
-  # fi
+  # debug "[idx $index, want ${!_STUB_INDEX}] $line"
 
   if [ -z "${!_STUB_END}" ] && [ $index -eq "${!_STUB_INDEX}" ]; then
     # We found the plan line we're interested in.
@@ -108,8 +112,8 @@ if [ -n "${!_STUB_END}" ]; then
   echo "${_STUB_DEBUG}"
   debug "unstubbing"
 
-  if [ ! -f "${!_STUB_RUN}" ] && [ -n "${!_STUB_DEBUG}" ] ; then
-    echo "The stub for ${program} wasn't run"
+  if [ ! -f "${!_STUB_RUN}" ] ; then
+    debug "The stub for ${program} wasn't run"
     exit 1
   fi
 

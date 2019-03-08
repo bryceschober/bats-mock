@@ -141,8 +141,30 @@ function install() {
 
 It can be difficult to figure out why your mock has failed. You can enable debugging by setting an environment variable (in this case for `date`):
 
-```
+```bash
 export DATE_STUB_DEBUG=/dev/tty
+```
+
+With this option enabled, the output for the `format_date()` [test routine above](#stubbing) would
+look like:
+
+```shell
+   date format util formats date with expected arguments      1/1
+    bats-mock(date): got date -r 222
+    bats-mock(date): running echo 'I am stubbed!'
+    bats-mock(date): command input is 
+    bats-mock(date): command result was 0
+    bats-mock(date): result 0
+
+    bats-mock(date): got date -r 222
+    bats-mock(date): running echo 'Wed Dec 31 18:03:42 CST 1969'
+    bats-mock(date): command input is 
+    bats-mock(date): command result was 0
+    bats-mock(date): result 0
+    bats-mock(date): unstubbing
+ ✓ date format util formats date with expected arguments
+
+1 tests, 0 failures
 ```
 
 With default behavior, stubs for all tests go into the same shared `${BATS_TMPDIR}` (`/tmp` on unix systems). This has the effect that if and when some mocking goes wrong, it can cause failure of later tests that deserve to pass. A good work-around for this is to use the `bats-file` support library from [ztombol/bats-file](https://github.com/ztombol/bats-file) to configure `bats-mock` to run in a sub-directory unique to each test. For example:
