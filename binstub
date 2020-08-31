@@ -24,7 +24,7 @@ _LDSPC='    '
 #   export MYPROGRAM_STUB_DEBUG=/dev/tty
 debug() {
   if [ -n "${!_STUB_DEBUG}" ] ; then
-    echo "${_LDSPC}bats-mock($program): $@" >&${!_STUB_DEBUG}
+    echo "${_LDSPC}bats-mock($program): $*" >&${!_STUB_DEBUG}
   fi
 }
 
@@ -53,9 +53,9 @@ detail_overview() {
 detail() {
   if [ -n "${BATS_MOCK_DETAIL}" ] ; then
     detail_overview
-    echo "${_LDSPC}bats-mock($program): $@" >&${BATS_MOCK_DETAIL}
+    echo "${_LDSPC}bats-mock($program): $*" >&${BATS_MOCK_DETAIL}
   elif [ -n "${!_STUB_DEBUG}" ] ; then
-    echo "${_LDSPC}bats-mock($program): $@" >&${!_STUB_DEBUG}
+    echo "${_LDSPC}bats-mock($program): $*" >&${!_STUB_DEBUG}
   fi
 }
 
@@ -67,7 +67,7 @@ eval "${_STUB_INDEX}"=1
 eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
-actual_invocation="got ${program}$(printf " '%q'" "$@")"
+actual_invocation="got ${program}$(printf " '%q'" "$*")"
 if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
   echo '' >&${!_STUB_DEBUG} # Work around problem with interrupting normal BATS output
   debug "$actual_invocation"
@@ -102,8 +102,8 @@ while IFS= read -r line; do
       parsed_patterns+=("$token")
     done < <(xargs printf '%b\0' <<< "${patterns}")
 
-    # debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
-    # debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
+    debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
+    debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
 
     expected_invocation="expected ${program}$(printf " '%q'" "${parsed_patterns[@]}")"
 
@@ -116,6 +116,7 @@ while IFS= read -r line; do
       if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
         detail "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
         result=1
+        break
       fi
     done
 
@@ -123,7 +124,8 @@ while IFS= read -r line; do
     for (( i=${#parsed_patterns[@]}; i<${#arguments[@]}; i++ )); do
       argument="${arguments[$i]}"
       detail "$(printf "unexpected argument at idx %d, got '%q'" $i "${arguments[$i]}")"
-      result=1
+      result=2
+      break
     done
 
     # If the arguments matched, evaluate the command
@@ -136,6 +138,7 @@ while IFS= read -r line; do
       status="$?"
       debug "command result was $status"
       set -e
+      # eval "${_STUB_RESULT}"=$status
     else
       eval "${_STUB_RESULT}"=1
     fi
