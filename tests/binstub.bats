@@ -59,3 +59,20 @@ load '../stub'
 
   unstub mycommand
 }
+
+function helper_function() {
+  echo "the real helper_function()"
+}
+
+function function_under_test() {
+  echo "The result is from $(helper_function)"
+}
+
+@test "Stubbing a helper function next the the one under test" {
+  stub helper_function " : echo 'the stubbed-in mock helper_function()'"
+
+  result=$(function_under_test)
+  [[ "$result" == 'The result is from the stubbed-in mock helper_function()' ]]
+
+  unstub helper_function
+}
